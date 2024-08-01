@@ -1,39 +1,63 @@
 using DG.Tweening;
 using System.Collections.Generic;
 using System.Linq;
+using TMPro;
+using TreeEditor;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 
 
 public class GameManager : MonoBehaviour
 {
-    [SerializeField] private readonly int _size = 4;
+    public static bool Ignore { get; set; }
+    public static int Size { get; set; }
+    public static GameState Gamestate { get; set; }
+
     [SerializeField] private readonly float _travelTime = 0.2f;
+    [SerializeField] private int _winCondition;
     [SerializeField] private Node _nodePrefab;
     [SerializeField] private SpriteRenderer _boardPrefab;
     [SerializeField] private Block _blockPrefab;
     [SerializeField] private List<BlockType> _blockTypes;
-    [SerializeField] private int _winCondition = 2048;
-
-    [SerializeField] private GameObject _winScreen, _looseScreen;
+    [SerializeField] private GameObject _winScreen, _looseScreen, _background, _quit, _continue;
+    [SerializeField] private TextMeshProUGUI _counter, _goal, _result;
 
     private int _round = 0;
+    private long _score = 0;
     private List<Node> _nodes = new();
     private List<Block> _blocks = new();
-    private GameState _gameState;
 
     private BlockType GetBlockTypeByValue(int value) => _blockTypes.First(x => x.Value == value);
 
+    private List<Node> GetFreeNodes() => _nodes.Where(n => n.OccupiedBlock == null)
+        .OrderBy(b => Random.value).ToList();
+
     public void Start()
     {
+        Ignore = false;
+        switch (Size)
+        {
+            case 3:
+                _winCondition = 128;
+                break;
+            case 4:
+                _winCondition = 2048;
+                break;
+            case 5:
+                _winCondition = 262144;
+                break;
+        }
+
+        _goal.SetText("Goal: " + _winCondition);
         GenerateGrid();
     }
 
     private void ChangeState(GameState newState)
     {
-        _gameState = newState;
+        Gamestate = newState;
 
-        switch (_gameState)
+        switch (Gamestate)
         {
             case GameState.GenerateLevel:
                 GenerateGrid();
@@ -44,10 +68,17 @@ public class GameManager : MonoBehaviour
             case GameState.Move:
                 break;
             case GameState.Lose:
+                _background.SetActive(true);
                 _looseScreen.SetActive(true);
+                _quit.SetActive(true);
+                _result.SetText("You scored " + _score.ToString());
+                _result.gameObject.SetActive(true);
                 break;
             case GameState.Win:
+                _background.SetActive(true);
                 _winScreen.SetActive(true);
+                _quit.SetActive(true);
+                _continue.SetActive(true);
                 break;
             case GameState.WaitInput:
                 break;
@@ -56,16 +87,16 @@ public class GameManager : MonoBehaviour
 
     private void GenerateGrid()
     {
-        for (int x = 0; x < _size; x++)
-            for (int y = 0; y < _size; y++)
+        for (int x = 0; x < Size; x++)
+            for (int y = 0; y < Size; y++)
             {
                 var node = Instantiate(_nodePrefab, new Vector2(x, y), Quaternion.identity);
                 _nodes.Add(node);
             }
-        var center = new Vector2((float)_size / 2 - 0.5f, (float)_size / 2 - 0.5f);
+        var center = new Vector2((float)Size / 2 - 0.5f, (float)Size / 2 - 0.5f);
 
         var board = Instantiate(_boardPrefab, center, Quaternion.identity);
-        board.size = new Vector2(_size, _size);
+        board.size = new Vector2(Size, Size);
 
         Camera.main.transform.position = new Vector3(center.x, center.y, -10);
 
@@ -74,18 +105,43 @@ public class GameManager : MonoBehaviour
 
     private void SpawnBlocks(int amount)
     {
-        var freeNodes = _nodes.Where(n => n.OcupiedBlock == null).OrderBy(b => Random.value);
+        if (!Ignore)
+            ChangeState(_blocks.Any(b => b.Value == _winCondition)
+                ? GameState.Win
+                : GameState.WaitInput);
+        else
+            ChangeState(GameState.WaitInput);
 
-        foreach (var node in freeNodes.Take(amount))
-            SpawnBlock(node, Random.value > 0.9f ? 4 : 2);
+        var freeNodes = GetFreeNodes();
 
-        if (freeNodes.Count() == 1)
+        if (CheckLose(freeNodes))
         {
             ChangeState(GameState.Lose);
             return;
         }
 
-        ChangeState(_blocks.Any(b => b.Value == _winCondition) ? GameState.Win : GameState.WaitInput);
+        foreach (var node in freeNodes.Take(amount))
+            SpawnBlock(node, Random.value > 0.9f ? 4 : 2);
+    }
+
+    private bool CheckLose(List<Node> freeNodes)
+    {
+        if (freeNodes.Count() > 0)
+            return false;
+
+        for (int index = 0; index < _nodes.Count; index += 2)
+        {
+            if ((index - 1) > 0 && index % Size != 0 && _nodes[index].OccupiedBlock.CanMerge(_nodes[index - 1].OccupiedBlock.Value))
+                return false;
+            if ((index + 1) < _nodes.Count && (index + 1) % Size != 0 && _nodes[index].OccupiedBlock.CanMerge(_nodes[index + 1].OccupiedBlock.Value))
+                return false;
+            if ((index + Size) < _nodes.Count && _nodes[index].OccupiedBlock.CanMerge(_nodes[index + Size].OccupiedBlock.Value))
+                return false;
+            if ((index - Size) > 0 && _nodes[index].OccupiedBlock.CanMerge(_nodes[index - Size].OccupiedBlock.Value))
+                return false;
+        }
+
+        return true;
     }
 
     private void SpawnBlock(Node node, int value)
@@ -98,7 +154,7 @@ public class GameManager : MonoBehaviour
 
     private void Update()
     {
-        if (_gameState != GameState.WaitInput)
+        if (Gamestate != GameState.WaitInput)
             return;
 
         if (Input.GetKeyDown(KeyCode.LeftArrow))
@@ -109,12 +165,16 @@ public class GameManager : MonoBehaviour
             Shift(Vector2.down);
         else if (Input.GetKeyDown(KeyCode.UpArrow))
             Shift(Vector2.up);
+        else if (Input.GetKeyDown(KeyCode.Escape))
+            SceneManager.LoadSceneAsync(0);
     }
 
     private void Shift(Vector2 direction)
     {
         ChangeState(GameState.Move);
-        var orderedBlocks = _blocks.OrderBy(b => b.Pos.x).ThenBy(b => b.Pos.y).ToList();
+        var orderedBlocks = _blocks.OrderBy(b => b.Pos.x)
+            .ThenBy(b => b.Pos.y).ToList();
+        var moved = false;
 
         if (direction == Vector2.right ||
             direction == Vector2.up)
@@ -131,19 +191,37 @@ public class GameManager : MonoBehaviour
                 var possibleNode = GetNodeAtPos(next.Pos + direction);
                 if (possibleNode != null)
                 {
-                    if (possibleNode.OcupiedBlock != null && possibleNode.OcupiedBlock.CanMerge(block.Value))
-                        block.MergeBlock(possibleNode.OcupiedBlock);
-                    else if (possibleNode.OcupiedBlock == null)
+                    var value = block.Value;
+                    if (possibleNode.OccupiedBlock != null &&
+                        possibleNode.OccupiedBlock.CanMerge(value))
+                    {
+                        block.MergeBlock(possibleNode.OccupiedBlock);
+                        _score += value * 2;
+                        _counter.SetText(_score.ToString());
+                        moved = true;
+                    }
+                    else if (possibleNode.OccupiedBlock == null)
+                    {
                         next = possibleNode;
+                        moved = true;
+                    }
                 }
             } while (next != block.Node);
+        }
+
+        if (!moved && GetFreeNodes().Count != 0)
+        {
+            ChangeState(GameState.WaitInput);
+            return;
         }
 
         var sequence = DOTween.Sequence();
 
         foreach (var block in orderedBlocks)
         {
-            var movePoint = block.MergingBlock != null ? block.MergingBlock.Node.Pos : block.Node.Pos;
+            var movePoint = block.MergingBlock != null
+                ? block.MergingBlock.Node.Pos
+                : block.Node.Pos;
 
             sequence.Insert(0, block.transform.DOMove(movePoint, _travelTime));
         }

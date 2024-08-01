@@ -23,17 +23,17 @@ public class Block : MonoBehaviour
     public void SetBlock(Node node)
     {
         if (Node != null)
-            Node.OcupiedBlock = null;
+            Node.OccupiedBlock = null;
 
         Node = node;
-        Node.OcupiedBlock = this;
+        Node.OccupiedBlock = this;
     }
 
     public void MergeBlock(Block mergeBlock)
     {
         MergingBlock = mergeBlock;
 
-        Node.OcupiedBlock = null;
+        Node.OccupiedBlock = null;
         mergeBlock.Merging = true;
     }
 
