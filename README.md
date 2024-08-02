@@ -2,7 +2,7 @@
 
 ## The implementation of the classical puzzle game 2048 created using Unity.
 
-This project was based on the following guide: <a href="https://www.youtube.com/watch?v=TeurfjuEIgA&t=108s"</a>
+This project was based on the following guide: https://www.youtube.com/watch?v=TeurfjuEIgA&t=108s"
 However this is an extended and fixed version of what author has created in this guide. This project is good for understanding basic algorithms behind 2048 game and moreover, it is actually a very nice game(I love it). 
 
 # How to play?
