@@ -12,11 +12,11 @@ Use arrows to move blocks and you can use escape to exit to the main menu.
 * Three different sizes of board;
 * You can play till infinity;
 * Sounds while merging or shifting blocks;
-* Score-counter and goal for the current board size;
+* Score-counter and goal for the current board size.
 
 # Used tools:
-* Unity 2023.1.19f
-* DOTween package for the smooth block shift animation
+* Unity 2023.1.19f;
+* DOTween package for the smooth block shift animation.
 
 
 # Preview:
