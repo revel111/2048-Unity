@@ -2,11 +2,8 @@ using DG.Tweening;
 using System.Collections.Generic;
 using System.Linq;
 using TMPro;
-using TreeEditor;
 using UnityEngine;
 using UnityEngine.SceneManagement;
-
-
 
 public class GameManager : MonoBehaviour
 {
@@ -22,6 +19,7 @@ public class GameManager : MonoBehaviour
     [SerializeField] private List<BlockType> _blockTypes;
     [SerializeField] private GameObject _winScreen, _looseScreen, _background, _quit, _continue;
     [SerializeField] private TextMeshProUGUI _counter, _goal, _result;
+    private AudioManager audioManager;
 
     private int _round = 0;
     private long _score = 0;
@@ -32,6 +30,11 @@ public class GameManager : MonoBehaviour
 
     private List<Node> GetFreeNodes() => _nodes.Where(n => n.OccupiedBlock == null)
         .OrderBy(b => Random.value).ToList();
+
+    public void Awake()
+    {
+        audioManager = GameObject.FindGameObjectWithTag("Sound").GetComponent<AudioManager>();
+    }
 
     public void Start()
     {
@@ -175,6 +178,7 @@ public class GameManager : MonoBehaviour
         var orderedBlocks = _blocks.OrderBy(b => b.Pos.x)
             .ThenBy(b => b.Pos.y).ToList();
         var moved = false;
+        var merged = false;
 
         if (direction == Vector2.right ||
             direction == Vector2.up)
@@ -199,6 +203,7 @@ public class GameManager : MonoBehaviour
                         _score += value * 2;
                         _counter.SetText(_score.ToString());
                         moved = true;
+                        merged = true;
                     }
                     else if (possibleNode.OccupiedBlock == null)
                     {
@@ -214,6 +219,11 @@ public class GameManager : MonoBehaviour
             ChangeState(GameState.WaitInput);
             return;
         }
+
+        if (merged)
+            audioManager.PlayMerge();
+        else 
+            audioManager.PlayMove();
 
         var sequence = DOTween.Sequence();
 
